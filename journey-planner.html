@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trans-Eurasian Rail Journey | HK → Moscow → Balkans → Lisbon</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg: #1a1d23;
+            --panel-bg: #21252b;
+            --card-bg: #282c34;
+            --text: #e1e4e8;
+            --text-secondary: #a0a6b0;
+            --accent-k3: #e8734a;
+            --accent-k19: #4ea8b4;
+            --accent-green: #5cb878;
+            --accent-red: #e05555;
+            --accent-yellow: #d4a843;
+            --accent-blue: #5b9bd5;
+            --accent-europe: #c084fc;
+            --border: #3a3f4b;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --transition: 0.25s ease;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            z-index: 10;
+            box-shadow: var(--shadow);
+        }
+        .header .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+        }
+        .header .logo .icon {
+            font-size: 1.6rem;
+        }
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn-group {
+            display: flex;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .btn-group button {
+            padding: 9px 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            transition: var(--transition);
+            white-space: nowrap;
+            letter-spacing: -0.2px;
+        }
+        .btn-group button.active {
+            background: #3a3f4b;
+            color: #fff;
+            box-shadow: inset 0 2px 0 currentColor;
+        }
+        .btn-group button:hover {
+            background: #353a45;
+            color: #fff;
+        }
+        .btn-group button.active.k3-active {
+            color: var(--accent-k3);
+            box-shadow: inset 0 2px 0 var(--accent-k3);
+        }
+        .btn-group button.active.k19-active {
+            color: var(--accent-k19);
+            box-shadow: inset 0 2px 0 var(--accent-k19);
+        }
+        .passport-toggle {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 4px;
+            border: 1px solid var(--border);
+        }
+        .passport-toggle button {
+            padding: 7px 14px;
+            border-radius: 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: transparent;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        .passport-toggle button.active {
+            background: #4a5568;
+            color: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        .passport-toggle button:hover {
+            color: #fff;
+        }
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .map-wrapper {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .map-legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--panel-bg);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            font-size: 0.78rem;
+            z-index: 5;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 280px;
+            flex-wrap: wrap;
+        }
+        .map-legend .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .map-legend .legend-line {
+            width: 28px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        .map-legend .legend-dash {
+            width: 28px;
+            height: 0;
+            border-top: 2.5px dashed;
+        }
+        .sidebar {
+            width: 440px;
+            min-width: 360px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: var(--shadow);
+            z-index: 5;
+        }
+        .sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 10px;
+        }
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+            font-weight: 700;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+        }
+        .card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+            letter-spacing: -0.3px;
+        }
+        .card .detail-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            padding: 3px 0;
+            color: var(--text-secondary);
+        }
+        .card .detail-row span:last-child {
+            color: var(--text);
+            font-weight: 500;
+            text-align: right;
+        }
+        .card .badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+        .badge-green {
+            background: #1e3a2f;
+            color: var(--accent-green);
+        }
+        .badge-red {
+            background: #3a1e1e;
+            color: var(--accent-red);
+        }
+        .badge-yellow {
+            background: #3a301e;
+            color: var(--accent-yellow);
+        }
+        .badge-blue {
+            background: #1e2e3a;
+            color: var(--accent-blue);
+        }
+        .badge-k3 {
+            background: #3a2219;
+            color: var(--accent-k3);
+        }
+        .badge-k19 {
+            background: #192e32;
+            color: var(--accent-k19);
+        }
+        .visa-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .visa-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            font-size: 0.78rem;
+            transition: var(--transition);
+        }
+        .visa-card .flag {
+            font-size: 1.3rem;
+            margin-bottom: 2px;
+        }
+        .visa-card .status {
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        .visa-card .status.free {
+            color: var(--accent-green);
+        }
+        .visa-card .status.required {
+            color: var(--accent-red);
+        }
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            position: relative;
+            padding-left: 20px;
+            border-left: 2px solid var(--border);
+            margin-left: 6px;
+        }
+        .timeline .stop {
+            position: relative;
+            padding: 6px 0 6px 14px;
+            font-size: 0.8rem;
+        }
+        .timeline .stop::before {
+            content: '';
+            position: absolute;
+            left: -20px;
+            top: 12px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-k3);
+            transform: translateX(-3px);
+        }
+        .timeline .stop.major::before {
+            width: 12px;
+            height: 12px;
+            left: -20px;
+            top: 10px;
+            transform: translateX(-5px);
+            border: 2px solid #fff;
+        }
+        .timeline .stop .time {
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        .timeline .stop .label {
+            color: var(--text-secondary);
+            font-size: 0.73rem;
+        }
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                min-width: 0;
+                max-height: 45vh;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+            #map {
+                height: 55vh;
+            }
+            .header {
+                padding: 10px 14px;
+                gap: 8px;
+            }
+            .header .logo {
+                font-size: 1rem;
+            }
+            .btn-group button {
+                padding: 7px 10px;
+                font-size: 0.75rem;
+            }
+        }
+        @media (max-width: 500px) {
+            .sidebar {
+                padding: 10px;
+                gap: 8px;
+            }
+            .visa-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-controls {
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <span class="icon">🚂</span> Trans‑Eurasian Journey Planner
+        </div>
+        <div class="header-controls">
+            <div class="btn-group" id="routeToggle">
+                <button id="btnK3" class="active k3-active" onclick="switchRoute('k3')">🛤️ K3 · Trans‑Mongolian</button>
+                <button id="btnK19" onclick="switchRoute('k19')">🛤️ K19 · Trans‑Manchurian</button>
+            </div>
+            <div class="passport-toggle" id="passportToggle">
+                <button id="btnPT" class="active" onclick="switchPassport('pt')">🇵🇹 Portuguese</button>
+                <button id="btnPH" onclick="switchPassport('ph')">🇵🇭 Filipino</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-legend" id="legend">
+                <div class="legend-item"><span class="legend-line" style="background:#f0c040;"></span> HK → Shanghai → Beijing</div>
+                <div class="legend-item" id="legendK3"><span class="legend-line" style="background:#e8734a;"></span> K3 Beijing → Moscow</div>
+                <div class="legend-item" id="legendK19" style="display:none;"><span class="legend-line" style="background:#4ea8b4;"></span> K19 Beijing → Moscow</div>
+                <div class="legend-item"><span class="legend-line" style="background:#9b7ec4;"></span> Moscow → St. Petersburg</div>
+                <div class="legend-item"><span class="legend-dash" style="border-color:#f59e0b;"></span> Flight St. Petersburg → Istanbul</div>
+                <div class="legend-item"><span class="legend-line" style="background:#c084fc;"></span> Europe overland to Lisbon</div>
+                <div class="legend-item"><span class="legend-dash" style="border-color:#60a5fa;"></span> Ferry Split → Ancona</div>
+            </div>
+        </div>
+
+        <div class="sidebar" id="sidebar">
+            <div>
+                <span class="section-title">🛂 Visa Requirements</span>
+                <div class="visa-grid" id="visaGrid"></div>
+                <p style="font-size:0.7rem;margin-top:6px;color:var(--text-secondary);">
+                    🇷🇸 Serbia allows visa‑free entry for PH passport holders with a valid Schengen visa (available).
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>🚄 Journey Timeline</h3>
+                <div class="timeline" id="scheduleTimeline"></div>
+            </div>
+
+            <div class="card">
+                <h3>⏱️ Total Journey Duration</h3>
+                <div class="detail-row"><span>Hong Kong → Shanghai</span><span>~8–11 hrs</span></div>
+                <div class="detail-row"><span>Shanghai → Beijing</span><span>~4.5–6 hrs</span></div>
+                <div class="detail-row" id="durationBeijingMoscow"><span>Beijing → Moscow</span><span>~6 days (K3) / ~149 hrs (K19)</span></div>
+                <div class="detail-row"><span>Moscow → St. Petersburg</span><span>~3.5–10 hrs</span></div>
+                <div class="detail-row"><span>Flight St. Petersburg → Istanbul</span><span>~4 hrs</span></div>
+                <div class="detail-row"><span>Istanbul → Thessaloniki (bus)</span><span>~12 hrs</span></div>
+                <div class="detail-row"><span>Balkans & Italy (train/ferry)</span><span>~3–4 days</span></div>
+                <div class="detail-row"><span>Italy → Lisbon (train)</span><span>~3–4 days</span></div>
+                <div class="detail-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:6px;font-weight:700;">
+                    <span>Total (excluding stopovers)</span><span id="totalDuration">~18–22 days</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🌍 Europe Overland Route</h3>
+                <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:8px;">
+                    <strong>St. Petersburg ✈️ Istanbul</strong> → bus to Thessaloniki → train/bus via Belgrade, Zagreb, Split → ⛴️ ferry to Ancona → train to Milan, Nice, Barcelona, Granada, Madrid → 🚃 night train to Lisbon.
+                </p>
+                <div class="detail-row"><span>🇬🇷 Thessaloniki</span><span>Overnight bus from Istanbul</span></div>
+                <div class="detail-row"><span>🇷🇸 Belgrade</span><span>Train or bus</span></div>
+                <div class="detail-row"><span>🇭🇷 Zagreb → Split</span><span>6‑8 hrs train</span></div>
+                <div class="detail-row"><span>⛴️ Split → Ancona</span><span>~10 hrs overnight ferry</span></div>
+                <div class="detail-row"><span>🇮🇹 Ancona → Milan → Nice</span><span>High‑speed trains</span></div>
+                <div class="detail-row"><span>🇪🇸 Barcelona → Granada</span><span>AVE ~6.5 hrs</span></div>
+                <div class="detail-row"><span>🇪🇸 Granada → Madrid</span><span>AVE ~3.5‑4 hrs</span></div>
+                <div class="detail-row"><span>🇵🇹 Madrid → Lisbon</span><span>Night train ~11 hrs</span></div>
+            </div>
+
+            <div class="card" id="routeInfoCard">
+                <h3 id="routeInfoTitle">🛤️ K3 Trans‑Mongolian Route</h3>
+                <p style="font-size:0.78rem;color:var(--text-secondary);" id="routeInfoDesc">
+                    Departs Beijing <strong>every Wednesday at 07:27</strong>. Passes through Mongolia (Ulaanbaatar), skirts Lake Baikal, arrives Moscow Monday.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ──────────────────────────────────────
+        // STATE
+        // ──────────────────────────────────────
+        let currentRoute = 'k3'; // 'k3' | 'k19'
+        let currentPassport = 'pt'; // 'pt' | 'ph'
+
+        // ──────────────────────────────────────
+        // MAP SETUP
+        // ──────────────────────────────────────
+        const map = L.map('map', {
+            center: [48, 30],
+            zoom: 4,
+            zoomControl: true,
+            scrollWheelZoom: true,
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 18,
+        }).addTo(map);
+
+        function createIcon(color, size = 10) {
+            return L.divIcon({
+                className: 'custom-icon',
+                html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>`,
+                iconSize: [size, size],
+                iconAnchor: [size / 2, size / 2],
+                popupAnchor: [0, -size / 2 - 4],
+            });
+        }
+
+        const iconMajor = createIcon('#f0c040', 14);
+        const iconStopK3 = createIcon('#e8734a', 9);
+        const iconStopK19 = createIcon('#4ea8b4', 9);
+        const iconEurope = createIcon('#c084fc', 10);
+        const iconFerry = createIcon('#60a5fa', 8);
+        const iconFlight = createIcon('#f59e0b', 9);
+        const iconEnd = createIcon('#ffffff', 12);
+
+        // ──────────────────────────────────────
+        // COORDINATES
+        // ──────────────────────────────────────
+        const hk = [22.3193, 114.1694];
+        const shanghai = [31.2304, 121.4737];
+        const beijing = [39.9042, 116.4074];
+        const moscow = [55.7558, 37.6173];
+        const stPetersburg = [59.9343, 30.3351];
+        const istanbul = [41.0082, 28.9784];
+        const thessaloniki = [40.6401, 22.9444];
+        const belgrade = [44.7866, 20.4489];
+        const zagreb = [45.8150, 15.9819];
+        const split = [43.5081, 16.4402];
+        const ancona = [43.6158, 13.5187];
+        const milan = [45.4641, 9.1919];
+        const nice = [43.7102, 7.2620];
+        const barcelona = [41.3851, 2.1734];
+        const granada = [37.1773, -3.5986];
+        const madrid = [40.4168, -3.7038];
+        const lisbon = [38.7223, -9.1393];
+
+        // Existing Asian waypoints
+        const hkShBjWaypoints = [hk, [23.1291,113.2644], [28.2282,112.9388], [30.5928,114.3055], shanghai, [34.3416,117.1622], [36.6512,117.1201], beijing];
+        const k3Waypoints = [beijing, [40.0892,113.3010], [43.6533,111.9766], [47.8864,106.9057], [51.8348,107.6080], [52.2869,104.3054], [56.0153,92.8932], [55.0084,82.9357], [54.9893,73.3682], [56.8431,60.6455], [58.0105,56.2502], [58.5966,49.6601], [56.2965,43.9361], moscow];
+        const k19Waypoints = [beijing, [41.8057,123.4315], [45.8038,126.5350], [49.5900,117.4500], [52.0340,113.4994], [51.8348,107.6080], [52.2869,104.3054], [56.0153,92.8932], [55.0084,82.9357], [54.9893,73.3682], [56.8431,60.6455], [58.0105,56.2502], [58.5966,49.6601], [56.2965,43.9361], moscow];
+        const mskSpbWaypoints = [moscow, [56.8587,35.9176], [58.5228,31.2749], stPetersburg];
+
+        // New European overland leg (after flight to Istanbul)
+        // Istanbul → Thessaloniki (bus, approx road)
+        const istThesWaypoints = [istanbul, [40.9930,27.5070], [40.6401,22.9444]];
+        // Thessaloniki → Belgrade (train/bus)
+        const thesBelgradeWaypoints = [thessaloniki, [41.9942,21.4244], [43.3209,21.8958], belgrade];
+        // Belgrade → Zagreb
+        const belgradeZagrebWaypoints = [belgrade, [45.1,18.7], zagreb];
+        // Zagreb → Split
+        const zagrebSplitWaypoints = [zagreb, [44.8,15.2], split];
+        // Ferry Split → Ancona (straight dashed line)
+        const ferrySplitAncona = [split, ancona];
+        // Ancona → Milan → Nice
+        const anconaMilanNice = [ancona, [44.0,11.2], milan, [43.8,7.5], nice];
+        // Nice → Barcelona
+        const niceBarcelona = [nice, [43.5,5.0], barcelona];
+        // Barcelona → Granada → Madrid
+        const barcelonaGranadaMadrid = [barcelona, [41.2,0.5], [38.6,-2.0], granada, [39.5,-4.5], madrid];
+        // Madrid → Lisbon
+        const madridLisbon = [madrid, [39.3,-6.9], lisbon];
+
+        // Flight St. Petersburg → Istanbul (dashed)
+        const flightSpbIst = [stPetersburg, istanbul];
+
+        // Layers
+        let layers = {};
+
+        function clearMapLayers() {
+            Object.values(layers).forEach(l => { if (map.hasLayer(l)) map.removeLayer(l); });
+            layers = {};
+        }
+
+        function drawAll() {
+            clearMapLayers();
+
+            // Base Asia
+            layers.hkShBj = L.polyline(hkShBjWaypoints, { color: '#f0c040', weight: 4, opacity: 0.85 }).addTo(map);
+
+            if (currentRoute === 'k3') {
+                layers.kroute = L.polyline(k3Waypoints, { color: '#e8734a', weight: 4.5, opacity: 0.9 }).addTo(map);
+            } else {
+                layers.kroute = L.polyline(k19Waypoints, { color: '#4ea8b4', weight: 4.5, opacity: 0.9 }).addTo(map);
+            }
+
+            layers.mskSpb = L.polyline(mskSpbWaypoints, { color: '#9b7ec4', weight: 4, opacity: 0.85 }).addTo(map);
+
+            // Flight
+            layers.flightSpbIst = L.polyline(flightSpbIst, { color: '#f59e0b', weight: 2.5, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+
+            // Europe overland
+            layers.istThes = L.polyline(istThesWaypoints, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.thesBelgrade = L.polyline(thesBelgradeWaypoints, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.belgradeZagreb = L.polyline(belgradeZagrebWaypoints, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.zagrebSplit = L.polyline(zagrebSplitWaypoints, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.ferry = L.polyline(ferrySplitAncona, { color: '#60a5fa', weight: 3, opacity: 0.8, dashArray: '6, 6' }).addTo(map);
+            layers.anconaNice = L.polyline(anconaMilanNice, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.niceBarcelona = L.polyline(niceBarcelona, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.barcelonaGranadaMadrid = L.polyline(barcelonaGranadaMadrid, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+            layers.madridLisbon = L.polyline(madridLisbon, { color: '#c084fc', weight: 3.5, opacity: 0.8 }).addTo(map);
+
+            // Markers
+            const markers = L.layerGroup().addTo(map);
+            const stops = [
+                { pos: hk, label: 'Hong Kong', icon: iconMajor },
+                { pos: shanghai, label: 'Shanghai', icon: iconMajor },
+                { pos: beijing, label: 'Beijing', icon: iconMajor },
+                { pos: moscow, label: 'Moscow', icon: iconMajor },
+                { pos: stPetersburg, label: 'St. Petersburg', icon: iconMajor },
+                { pos: istanbul, label: 'Istanbul', icon: iconFlight },
+                { pos: thessaloniki, label: 'Thessaloniki', icon: iconEurope },
+                { pos: belgrade, label: 'Belgrade', icon: iconEurope },
+                { pos: zagreb, label: 'Zagreb', icon: iconEurope },
+                { pos: split, label: 'Split (ferry)', icon: iconFerry },
+                { pos: ancona, label: 'Ancona (ferry)', icon: iconFerry },
+                { pos: milan, label: 'Milan', icon: iconEurope },
+                { pos: nice, label: 'Nice', icon: iconEurope },
+                { pos: barcelona, label: 'Barcelona', icon: iconEurope },
+                { pos: granada, label: 'Granada', icon: iconEurope },
+                { pos: madrid, label: 'Madrid', icon: iconEurope },
+                { pos: lisbon, label: 'Lisbon', icon: iconEnd },
+            ];
+
+            if (currentRoute === 'k3') {
+                stops.push({ pos: [47.8864,106.9057], label: 'Ulaanbaatar', icon: iconStopK3 });
+                stops.push({ pos: [52.2869,104.3054], label: 'Irkutsk / Baikal', icon: iconStopK3 });
+            } else {
+                stops.push({ pos: [45.8038,126.5350], label: 'Harbin', icon: iconStopK19 });
+                stops.push({ pos: [49.5900,117.4500], label: 'Manzhouli', icon: iconStopK19 });
+                stops.push({ pos: [52.2869,104.3054], label: 'Irkutsk / Baikal', icon: iconStopK19 });
+            }
+
+            stops.forEach(s => L.marker(s.pos, { icon: s.icon }).bindPopup(`<strong>${s.label}</strong>`).addTo(markers));
+            layers.markers = markers;
+        }
+
+        // ──────────────────────────────────────
+        // SIDEBAR UPDATES
+        // ──────────────────────────────────────
+        function updateVisaGrid() {
+            const grid = document.getElementById('visaGrid');
+            const isK3 = currentRoute === 'k3';
+            const isPT = currentPassport === 'pt';
+            let cards = [];
+
+            // China
+            cards.push(isPT ? { flag:'🇨🇳', country:'China', status:'free', text:'Visa‑free (30 days)', detail:'Until Dec 31, 2026' }
+                           : { flag:'🇨🇳', country:'China', status:'required', text:'Tourist Visa (L)', detail:'Apply in advance' });
+
+            // Mongolia (only K3)
+            if (isK3) {
+                cards.push(isPT ? { flag:'🇲🇳', country:'Mongolia', status:'required', text:'Transit Visa', detail:'After Russian visa' }
+                               : { flag:'🇲🇳', country:'Mongolia', status:'free', text:'Visa‑free (21 days)', detail:'No transit visa needed' });
+            }
+
+            // Russia
+            cards.push(isPT ? { flag:'🇷🇺', country:'Russia', status:'free', text:'30‑day e‑Visa', detail:'Apply online' }
+                           : { flag:'🇷🇺', country:'Russia', status:'required', text:'16‑day e‑Visa', detail:'⚠️ Shorter validity' });
+
+            // Turkey
+            cards.push({ flag:'🇹🇷', country:'Türkiye', status:'free', text:'Visa‑free', detail:'Both passports' });
+
+            // Schengen (Portugal)
+            cards.push(isPT ? { flag:'🇪🇺', country:'Schengen', status:'free', text:'Visa‑free', detail:'No visa needed' }
+                           : { flag:'🇪🇺', country:'Schengen', status:'required', text:'Schengen visa required', detail:'Apply before trip' });
+
+            grid.innerHTML = cards.map(c => `
+                <div class="visa-card">
+                    <div class="flag">${c.flag}</div>
+                    <div style="font-weight:700;margin:2px 0;">${c.country}</div>
+                    <div class="status ${c.status}">${c.text}</div>
+                    <div style="font-size:0.7rem;color:var(--text-secondary);">${c.detail}</div>
+                </div>`).join('');
+        }
+
+        function updateScheduleTimeline() {
+            const timeline = document.getElementById('scheduleTimeline');
+            const isK3 = currentRoute === 'k3';
+            let stops = [
+                { time: '~08:00', label: 'Depart Hong Kong West Kowloon', major: true },
+                { time: '~18:00', label: 'Arrive Shanghai Hongqiao', major: true },
+                { time: 'Next morning', label: 'Shanghai → Beijing', major: false },
+                { time: '~4.5‑6 hrs', label: 'Arrive Beijing', major: true },
+            ];
+
+            if (isK3) {
+                stops.push({ time: 'Wed 07:27', label: 'Depart Beijing (K3)', major: true });
+                stops.push({ time: 'Thu', label: 'Enter Mongolia', major: false });
+                stops.push({ time: 'Sat', label: 'Lake Baikal', major: false });
+                stops.push({ time: 'Mon', label: 'Arrive Moscow', major: true });
+            } else {
+                stops.push({ time: 'Sat 23:00', label: 'Depart Beijing (K19)', major: true });
+                stops.push({ time: 'Mon', label: 'Manchuria border', major: false });
+                stops.push({ time: 'Thu', label: 'Lake Baikal', major: false });
+                stops.push({ time: 'Fri 14:00', label: 'Arrive Moscow', major: true });
+            }
+
+            stops.push({ time: '~4‑10 hrs', label: 'Moscow → St. Petersburg', major: true });
+            stops.push({ time: '~4 hrs flight', label: 'St. Petersburg ✈️ Istanbul', major: true });
+            stops.push({ time: 'Overnight bus', label: 'Istanbul → Thessaloniki', major: true });
+            stops.push({ time: '1‑2 days', label: 'Train/bus via Belgrade, Zagreb, Split', major: false });
+            stops.push({ time: 'Overnight ferry', label: '⛴️ Split → Ancona', major: true });
+            stops.push({ time: '1‑2 days', label: 'Italy → Nice → Spain', major: false });
+            stops.push({ time: '~11 hrs night train', label: 'Madrid → Lisbon', major: true });
+            stops.push({ time: '—', label: 'Arrive Lisbon!', major: false });
+
+            timeline.innerHTML = stops.map(s => `
+                <div class="stop${s.major ? ' major' : ''}">
+                    <span class="time">${s.time}</span>
+                    <span class="label">${s.label}</span>
+                </div>`).join('');
+        }
+
+        function updateRouteInfoCard() {
+            const title = document.getElementById('routeInfoTitle');
+            const desc = document.getElementById('routeInfoDesc');
+            if (currentRoute === 'k3') {
+                title.textContent = '🛤️ K3 Trans‑Mongolian Route';
+                desc.innerHTML = 'Departs Beijing <strong>every Wednesday at 07:27</strong>. Passes through Mongolia (Ulaanbaatar), skirts Lake Baikal, arrives Moscow Monday. <br><br><span style="color:#e8734a;">⚠️ Mongolian transit visa required for Portuguese passport.</span>';
+            } else {
+                title.textContent = '🛤️ K19 Trans‑Manchurian Route';
+                desc.innerHTML = 'Departs Beijing <strong>every Saturday at 23:00</strong>. Direct route via Harbin and Manzhouli into Russia, bypassing Mongolia. Arrives in Moscow Friday 14:00. <br><br><span style="color:#4ea8b4;">✅ No Mongolian visa needed.</span>';
+            }
+        }
+
+        function updateDurationSummary() {
+            document.getElementById('durationBeijingMoscow').innerHTML =
+                currentRoute === 'k3' ? '<span>Beijing → Moscow (K3)</span><span>~6 days</span>'
+                                      : '<span>Beijing → Moscow (K19)</span><span>~149 hrs</span>';
+            document.getElementById('totalDuration').textContent =
+                currentRoute === 'k3' ? '~18–22 days' : '~19–23 days';
+        }
+
+        function updateLegend() {
+            document.getElementById('legendK3').style.display = currentRoute === 'k3' ? 'flex' : 'none';
+            document.getElementById('legendK19').style.display = currentRoute === 'k19' ? 'flex' : 'none';
+        }
+
+        function updateAllSidebar() {
+            updateVisaGrid();
+            updateScheduleTimeline();
+            updateRouteInfoCard();
+            updateDurationSummary();
+            updateLegend();
+        }
+
+        // ──────────────────────────────────────
+        // SWITCH HANDLERS
+        // ──────────────────────────────────────
+        function switchRoute(route) {
+            currentRoute = route;
+            document.getElementById('btnK3').classList.toggle('active', route==='k3');
+            document.getElementById('btnK3').classList.toggle('k3-active', route==='k3');
+            document.getElementById('btnK19').classList.toggle('active', route==='k19');
+            document.getElementById('btnK19').classList.toggle('k19-active', route==='k19');
+            drawAll();
+            updateAllSidebar();
+            map.setView(route==='k3' ? [48, 45] : [48, 50], 4);
+        }
+
+        function switchPassport(passport) {
+            currentPassport = passport;
+            document.getElementById('btnPT').classList.toggle('active', passport==='pt');
+            document.getElementById('btnPH').classList.toggle('active', passport==='ph');
+            updateVisaGrid();
+        }
+
+        function init() {
+            drawAll();
+            updateAllSidebar();
+            const bounds = L.latLngBounds([hk, lisbon, stPetersburg, istanbul]);
+            map.fitBounds(bounds, { padding: [30, 30] });
+        }
+
+        init();
+        window.addEventListener('resize', () => map.invalidateSize());
+    </script>
+</body>
+</html>
